@@ -1,25 +1,55 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
-  const { data: { session } } = await supabase.auth.getSession();
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  // 로그인 안 됐는데 로그인 페이지가 아니면 무조건 로그인 페이지로 쫓아냄
-  if (!session && !req.nextUrl.pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/login', req.url));
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  // 🔒 보안 로직: 세션이 없고 로그인 페이지가 아니면 로그인으로 리다이렉트
+  if (!session && !request.nextUrl.pathname.startsWith('/login')) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 로그인 됐는데 로그인 페이지에 있으면 메인으로 보냄
-  if (session && req.nextUrl.pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/', req.url));
-  }
-
-  return res;
+  return response
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
