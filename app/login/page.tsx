@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr'; // 🔥 최신 SSR 패키지 사용
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -9,9 +9,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
-  // 브라우저용 클라이언트 생성 (환경변수 직접 참조)
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -22,21 +20,25 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    console.log("로그인 시도 중...");
+
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
+      if (loginError) {
         setError('아이디 또는 비밀번호가 올바르지 않습니다.');
-      } else {
-        // 로그인 성공 시 세션 동기화를 위해 페이지를 새로고침하며 이동
-        router.refresh();
-        router.push('/');
+        console.error("Login Error:", loginError.message);
+      } else if (data.session) {
+        console.log("로그인 성공! 세션 생성됨. 이동 중...");
+        // 🔥 가장 확실한 방법: 새로고침을 동반한 강제 이동
+        window.location.href = '/'; 
       }
     } catch (err) {
-      setError('로그인 서버와 통신 중 오류가 발생했습니다.');
+      setError('서버 연결에 실패했습니다.');
+      console.error("Unexpected Error:", err);
     } finally {
       setLoading(false);
     }
