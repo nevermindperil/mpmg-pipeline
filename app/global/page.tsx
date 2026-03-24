@@ -26,16 +26,19 @@ export default function GlobalPage() {
   const fetchTourNews = async () => {
     setIsLoading(true);
     try {
-      // Google News RSS에서 'concert tour' 키워드로 검색 (CORS 해결을 위해 Proxy 사용)
       const targetUrl = `https://news.google.com/rss/search?q=concert+tour+music+industry&hl=en-US&gl=US&ceid=US:en`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      
+      // 🔥 더 안정적인 새로운 Proxy 서버로 교체!
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
       
       const response = await fetch(proxyUrl);
-      const data = await response.json();
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      // 🔥 corsproxy.io는 텍스트(XML)를 바로 줍니다.
+      const xmlString = await response.text();
       
-      // XML 데이터를 파싱하여 JSON 형태로 변환
       const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(data.contents, "text/xml");
+      const xmlDoc = parser.parseFromString(xmlString, "text/xml");
       const items = xmlDoc.querySelectorAll("item");
       
       const parsedArticles = Array.from(items).slice(0, 6).map(item => ({
@@ -48,6 +51,8 @@ export default function GlobalPage() {
       setArticles(parsedArticles);
     } catch (error) {
       console.error("News fetch error:", error);
+      // 에러 시 사용자에게 보여줄 임시 데이터
+      setArticles([{ title: "현재 뉴스를 불러올 수 없습니다. Brave의 'Shields'를 끄거나 나중에 다시 시도해 주세요.", source: "System" }]);
     } finally {
       setIsLoading(false);
     }
