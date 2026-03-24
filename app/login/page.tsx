@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'; // 🔥 Vercel 호환을 위해 이 패키지 사용
+import { createBrowserClient } from '@supabase/ssr'; // 🔥 최신 SSR 패키지 사용
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -10,9 +10,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  
-  // 브라우저용 Supabase 클라이언트 생성
-  const supabase = createClientComponentClient();
+
+  // 브라우저용 클라이언트 생성 (환경변수 직접 참조)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,12 +31,12 @@ export default function LoginPage() {
       if (error) {
         setError('아이디 또는 비밀번호가 올바르지 않습니다.');
       } else {
-        // 🔥 중요: 로그인 성공 후 세션을 강제로 새로고침하고 메인으로 이동
-        router.refresh(); 
+        // 로그인 성공 시 세션 동기화를 위해 페이지를 새로고침하며 이동
+        router.refresh();
         router.push('/');
       }
     } catch (err) {
-      setError('로그인 중 알 수 없는 오류가 발생했습니다.');
+      setError('로그인 서버와 통신 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -42,7 +45,7 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#F5F5F7]">
       <div className="w-full max-w-[400px] p-12 bg-white rounded-[40px] shadow-2xl border border-[#E5E5EA]">
-        <h1 className="text-4xl font-black tracking-tighter uppercase mb-2 text-center">MPMG</h1>
+        <h1 className="text-4xl font-black tracking-tighter uppercase mb-2 text-center text-black">MPMG</h1>
         <p className="text-[10px] text-[#86868B] font-mono tracking-widest uppercase mb-12 text-center">Private Access Only</p>
         
         <form onSubmit={handleLogin} className="space-y-6">
