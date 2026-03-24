@@ -1,53 +1,70 @@
 'use client';
 
-import React from 'react';
-
-const PROCESS_STEPS = [
-  { step: '01', title: 'Contracting', desc: 'LOI 발송 및 계약 조건 최종 조율', status: 'Completed' },
-  { step: '02', title: 'Venue Setup', desc: '대관 확정 및 기술 라이더 검토', status: 'In Progress' },
-  { step: '03', title: 'Marketing', desc: '티켓 오픈 공지 및 홍보 전략 수립', status: 'Pending' },
-  { step: '04', title: 'Operation', desc: '현장 운영 인력 및 보안 계획 수립', status: 'Pending' },
-];
+import React, { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 
 export default function ProcessPage() {
+  const [steps, setSteps] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+  const fetchSteps = async () => {
+    const { data } = await supabase.from('process_steps').select('*').order('step_order', { ascending: true });
+    if (data) setSteps(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchSteps(); }, []);
+
+  const toggleStatus = async (id: number, currentStatus: string) => {
+    const newStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
+    await supabase.from('process_steps').update({ status: newStatus }).match({ id });
+    fetchSteps();
+  };
+
+  const progress = steps.length > 0 ? Math.round((steps.filter(s => s.status === 'Completed').length / steps.length) * 100) : 0;
+
   return (
     <div className="min-h-full">
-      <header className="px-6 md:px-16 py-8 md:py-12 border-b border-[#E5E5EA] bg-white/50 backdrop-blur-md sticky top-0 z-10">
-        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tighter text-black">Project Execution</h2>
-        <p className="text-[#86868B] font-mono text-[10px] uppercase tracking-widest mt-2">Standard Operating Procedure</p>
+      <header className="px-6 md:px-16 py-8 md:py-12 border-b border-[#E5E5EA] bg-white sticky top-0 z-30">
+        <div className="flex justify-between items-end mb-6">
+          <h2 className="text-3xl md:text-5xl font-black tracking-tighter">Execution</h2>
+          <span className="text-4xl md:text-6xl font-black tracking-tighter">{progress}%</span>
+        </div>
+        <div className="w-full h-2 bg-[#F5F5F7] rounded-full overflow-hidden">
+          <div className="h-full bg-black transition-all duration-700" style={{ width: `${progress}%` }}></div>
+        </div>
       </header>
 
-      <div className="px-6 md:px-16 py-8 md:py-12">
-        <div className="max-w-2xl mx-auto space-y-6 md:space-y-8">
-          {PROCESS_STEPS.map((item, idx) => (
-            <div key={idx} className="relative pl-12 md:pl-16 group">
-              {/* 타임라인 세로선 */}
-              {idx !== PROCESS_STEPS.length - 1 && (
-                <div className="absolute left-[21px] md:left-[27px] top-10 bottom-[-30px] w-[2px] bg-[#E5E5EA] group-hover:bg-[#1D1D1F] transition-colors"></div>
-              )}
-              
-              {/* 숫자 원형 아이콘 */}
-              <div className={`absolute left-0 top-0 w-11 h-11 md:w-14 md:h-14 rounded-full flex items-center justify-center border-2 transition-all z-10 ${
-                item.status === 'Completed' ? 'bg-[#1D1D1F] border-[#1D1D1F] text-white' : 
-                item.status === 'In Progress' ? 'bg-white border-[#1D1D1F] text-[#1D1D1F] shadow-lg' : 
-                'bg-white border-[#E5E5EA] text-[#D1D1D6]'
-              }`}>
-                <span className="text-xs md:text-sm font-black">{item.step}</span>
-              </div>
-
-              {/* 단계 설명 카드 */}
-              <div className={`p-6 md:p-8 rounded-[24px] md:rounded-[32px] border transition-all ${
-                item.status === 'In Progress' ? 'bg-white border-[#1D1D1F] shadow-xl' : 'bg-[#F5F5F7] border-transparent'
-              }`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-lg md:text-xl font-bold tracking-tight text-black">{item.title}</h4>
-                  <span className={`text-[8px] font-bold uppercase px-2 py-1 rounded ${
-                    item.status === 'In Progress' ? 'bg-black text-white' : 'text-[#86868B]'
-                  }`}>{item.status}</span>
+      <div className="px-6 md:px-16 py-12">
+        {/* 💻 PC View: 시원한 리스트 형식 */}
+        <div className="hidden md:block space-y-4">
+          {steps.map((item) => (
+            <div key={item.id} onClick={() => toggleStatus(item.id, item.status)} className={`flex items-center justify-between p-8 rounded-[32px] border cursor-pointer transition-all ${item.status === 'Completed' ? 'bg-[#F5F5F7] border-transparent' : 'bg-white border-[#E5E5EA] hover:border-black shadow-sm'}`}>
+              <div className="flex items-center gap-8">
+                <span className={`text-2xl font-black ${item.status === 'Completed' ? 'text-gray-300' : 'text-black'}`}>{item.step_order.toString().padStart(2, '0')}</span>
+                <div>
+                  <h4 className="text-xl font-bold tracking-tight">{item.title}</h4>
+                  <p className="text-sm text-[#86868B]">{item.description}</p>
                 </div>
-                <p className="text-sm md:text-base text-[#86868B] leading-relaxed">
-                  {item.desc}
-                </p>
+              </div>
+              <span className={`px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest ${item.status === 'Completed' ? 'bg-black text-white' : 'bg-white border border-[#E5E5EA] text-[#86868B]'}`}>{item.status}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* 📱 Mobile View: 세로형 타임라인 형식 */}
+        <div className="md:hidden space-y-10">
+          {steps.map((item, idx) => (
+            <div key={item.id} className="relative pl-12" onClick={() => toggleStatus(item.id, item.status)}>
+              {idx !== steps.length - 1 && <div className="absolute left-[21px] top-10 bottom-[-40px] w-[2px] bg-[#E5E5EA]"></div>}
+              <div className={`absolute left-0 top-0 w-11 h-11 rounded-full flex items-center justify-center border-2 z-10 ${item.status === 'Completed' ? 'bg-black border-black text-white' : 'bg-white border-[#E5E5EA] text-[#D1D1D6]'}`}>
+                {item.status === 'Completed' ? '✓' : idx + 1}
+              </div>
+              <div className={`p-6 rounded-[24px] border ${item.status === 'Completed' ? 'bg-[#F5F5F7] opacity-60' : 'bg-white shadow-md'}`}>
+                <h4 className="font-bold mb-1">{item.title}</h4>
+                <p className="text-xs text-[#86868B]">{item.description}</p>
               </div>
             </div>
           ))}
